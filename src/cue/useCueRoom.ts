@@ -1,24 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { isFirebaseConfigured, rtdbListen, rtdbSet, rtdbTransaction } from './rtdb'
+import { isFirebaseConfigured, rtdbListen, rtdbSet, rtdbTransaction } from '../game/rtdb'
+import type { RoomSession } from '../game/useGameRoom'
 import {
-  addPlayer,
-  applyMessage,
-  emptyRoom,
-  normalizeStoredRoom,
+  addCuePlayer,
+  applyCueMessage,
+  emptyCueRoom,
+  normalizeCueRoom,
   playerCount,
   playerRecord,
-  toFirebaseRoom,
-  toRoomState,
-  type StoredRoom,
+  toCueRoomState,
+  toFirebaseCueRoom,
+  type StoredCueRoom,
 } from './roomLogic'
-import { sanitizeName, type ClientMessage, type RoomState } from './protocol'
-
-export type RoomSession = {
-  roomCode: string
-  name: string
-  intent: 'create' | 'join'
-  gameId?: 'steven' | 'cue'
-}
+import { sanitizeName, type CueMessage, type CueRoomState } from './protocol'
 
 function tabId() {
   const key = 'games-tab-id'
@@ -29,14 +23,13 @@ function tabId() {
   return id
 }
 
-export function useGameRoom(session: RoomSession) {
-  const [state, setState] = useState<RoomState | null>(null)
+export function useCueRoom(session: RoomSession) {
+  const [state, setState] = useState<CueRoomState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>('connecting')
   const selfId = useRef(tabId())
   const sessionRef = useRef(session)
-  const latestState = useRef<RoomState | null>(null)
-  const latestRoom = useRef<StoredRoom | null>(null)
+  const latestState = useRef<CueRoomState | null>(null)
   sessionRef.current = session
 
   useEffect(() => {
@@ -53,32 +46,31 @@ export function useGameRoom(session: RoomSession) {
     let stopped = false
 
     const stopListen = rtdbListen(path, (data) => {
-      const room = normalizeStoredRoom(data)
+      const room = normalizeCueRoom(data)
       if (!room) return
       const visible = room.players[id]
         ? room
         : ({
             ...room,
             players: { ...room.players, [id]: playerRecord(id, name) },
-          } satisfies StoredRoom)
+          } satisfies StoredCueRoom)
       setError(null)
-      latestRoom.current = visible
-      latestState.current = toRoomState(visible, id, code)
+      latestState.current = toCueRoomState(visible, id, code)
       setState(latestState.current)
     })
 
     void rtdbTransaction(path, (current) => {
-      const room = normalizeStoredRoom(current)
+      const room = normalizeCueRoom(current)
       if (session.intent === 'join') {
         if (!room || playerCount(room) === 0) return undefined
-        const next = addPlayer(room, id, name)
-        return typeof next === 'string' ? undefined : toFirebaseRoom(next)
+        const next = addCuePlayer(room, id, name)
+        return typeof next === 'string' ? undefined : toFirebaseCueRoom(next)
       }
       if (room && playerCount(room) > 0) {
-        const next = addPlayer(room, id, name)
-        return typeof next === 'string' ? undefined : toFirebaseRoom(next)
+        const next = addCuePlayer(room, id, name)
+        return typeof next === 'string' ? undefined : toFirebaseCueRoom(next)
       }
-      return toFirebaseRoom(emptyRoom(id, name))
+      return toFirebaseCueRoom(emptyCueRoom(id, name))
     })
       .then((result) => {
         if (stopped) return
@@ -111,41 +103,36 @@ export function useGameRoom(session: RoomSession) {
     }
   }, [session.intent, session.name, session.roomCode])
 
-  const send = useCallback((message: ClientMessage) => {
+  const send = useCallback((message: CueMessage) => {
     if (!isFirebaseConfigured()) return
     const code = sessionRef.current.roomCode
     const id = selfId.current
     const path = `games/${code}`
 
-    if (message.type === 'pin') {
+    if (message.type === 'guess') {
       if (latestState.current?.phase !== 'guessing' || latestState.current.myLocked) return
-      void rtdbSet(`${path}/pins/${id}`, {
-        lat: message.lat,
-        lng: message.lng,
-        locked: false,
-      })
+      void rtdbSet(`${path}/guesses/${id}`, { ms: message.ms, locked: false })
       return
     }
 
     void rtdbTransaction(path, (current) => {
-      const room = normalizeStoredRoom(current)
+      const room = normalizeCueRoom(current)
       if (!room) return undefined
-      const next = applyMessage(room, id, message)
+      const next = applyCueMessage(room, id, message)
       if ('error' in next) return undefined
-      return toFirebaseRoom(next)
+      return toFirebaseCueRoom(next)
     }).then((result) => {
       if (result.committed) {
-        const room = normalizeStoredRoom(result.snapshot)
+        const room = normalizeCueRoom(result.snapshot)
         if (room) {
-          latestRoom.current = room
-          latestState.current = toRoomState(room, id, code)
+          latestState.current = toCueRoomState(room, id, code)
           setState(latestState.current)
         }
         return
       }
-      const room = normalizeStoredRoom(result.snapshot)
+      const room = normalizeCueRoom(result.snapshot)
       if (!room) return
-      const next = applyMessage(room, id, message)
+      const next = applyCueMessage(room, id, message)
       if ('error' in next) setError(next.error)
     })
   }, [])

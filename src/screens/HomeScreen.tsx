@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
-import { GAMES } from '../game/games'
+import { GAMES, type GameKind } from '../game/games'
 import {
   MAX_NAME_LENGTH,
   MAX_PLAYERS,
   ROOM_CODE_LENGTH,
-  GAME_TITLE,
   normalizeRoomCode,
   sanitizeName,
 } from '../game/protocol'
@@ -20,7 +19,7 @@ export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
   const [name, setName] = useState(() => localStorage.getItem('games-name') ?? '')
   const [code, setCode] = useState(initialCode)
   const [mode, setMode] = useState<'choose' | 'join'>(initialCode ? 'join' : 'choose')
-  const game = GAMES[0]
+  const [gameId, setGameId] = useState<GameKind>('steven')
 
   const cleanedName = useMemo(() => sanitizeName(name), [name])
   const cleanedCode = useMemo(() => normalizeRoomCode(code), [code])
@@ -35,6 +34,7 @@ export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
       intent: 'create',
       name: cleanedName,
       roomCode: generateRoomCode(),
+      gameId,
     })
   }
 
@@ -52,15 +52,23 @@ export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
     <main className="screen home">
       <p className="eyebrow">Party rooms</p>
       <h1>Games</h1>
-      <p className="lede">
-        Create a room, share a code, play on your own phones. First up:{' '}
-        <strong>{GAME_TITLE}</strong>.
-      </p>
+      <p className="lede">Create a room, share a code, play on your own phones.</p>
 
-      <section className="game-card">
-        <p className="eyebrow">{game.title}</p>
-        <p>{game.blurb}</p>
-      </section>
+      {mode === 'choose' ? (
+        <div className="game-list">
+          {GAMES.map((game) => (
+            <button
+              key={game.id}
+              className={game.id === gameId ? 'game-card selected' : 'game-card'}
+              type="button"
+              onClick={() => setGameId(game.id)}
+            >
+              <p className="eyebrow">{game.title}</p>
+              <p>{game.blurb}</p>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <label className="field">
         <span>Your name</span>

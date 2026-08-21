@@ -22,6 +22,7 @@ const NO_GUESS_MILES = 12_450
 export type StoredPlace = HiddenPlace & LatLng
 
 export type StoredRoom = {
+  gameId?: string
   phase: Phase
   hostId: string | null
   createdBy: string | null
@@ -39,6 +40,7 @@ export type StoredRoom = {
 
 export function emptyRoom(hostId: string, name: string): StoredRoom {
   return {
+    gameId: GAME_ID,
     phase: 'lobby',
     hostId,
     createdBy: hostId,
@@ -80,7 +82,9 @@ export function toFirebaseRoom(room: StoredRoom) {
 
 export function normalizeStoredRoom(raw: unknown): StoredRoom | null {
   if (!isRecord(raw) || !isPhase(raw.phase)) return null
+  if (raw.gameId === 'cue') return null
   return {
+    gameId: GAME_ID,
     phase: raw.phase,
     hostId: typeof raw.hostId === 'string' ? raw.hostId : null,
     createdBy:

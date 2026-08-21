@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:web": "vite",
     "build": "tsc -b && vite build",
-    "test": "npx tsx src/game/roomLogic.test.ts",
+    "test": "npx tsx src/game/roomLogic.test.ts && npx tsx src/cue/roomLogic.test.ts",
     "test:live": "npx tsx src/game/liveFlow.test.ts",
     "preview": "vite preview",
     "predeploy": "npm run build",
