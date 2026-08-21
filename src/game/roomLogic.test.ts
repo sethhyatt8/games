@@ -65,8 +65,15 @@ assert(hostDuringGuess.pinnedIds.includes(guest), 'host should see that Bob pinn
 assert(hostDuringGuess.myPin === null, 'host has not pinned yet')
 
 room = unwrap(applyMessage(room, host, { type: 'pin', lat: 40.71, lng: -74.0 }, 6_000))
-room = unwrap(applyMessage(room, guest, { type: 'timesUp' }, 1_000 + 30_000))
-assert(room.phase === 'reveal', `expected reveal, got ${room.phase}`)
+const lockedGuest = unwrap(applyMessage(room, guest, { type: 'lock' }, 7_000))
+assert(lockedGuest.phase === 'guessing', 'one lock should not end the round')
+assert(lockedGuest.pins[guest]?.locked === true, 'guest should be locked')
+const ignoredMove = unwrap(
+  applyMessage(lockedGuest, guest, { type: 'pin', lat: 0, lng: 0 }, 8_000),
+)
+assert(ignoredMove.pins[guest]?.lat === lockedGuest.pins[guest]?.lat, 'locked pins cannot move')
+room = unwrap(applyMessage(lockedGuest, host, { type: 'lock' }, 9_000))
+assert(room.phase === 'reveal', `expected reveal after everyone locked, got ${room.phase}`)
 assert(room.rows[0]?.playerId === guest, 'closer pin should rank first')
 assert((room.rows[0]?.miles ?? 999) < 20, 'Paris pin should be very close')
 assert((room.rows[1]?.miles ?? 0) > 3000, 'NYC pin should be thousands of miles off')
@@ -88,5 +95,20 @@ assert(room.winnerName, 'finale should name a winner')
 
 room = unwrap(applyMessage(room, host, { type: 'backToLobby' }))
 assert(room.phase === 'lobby', 'host can return to the lobby')
+
+let solo = emptyRoom(host, 'Ada')
+solo = unwrap(
+  applyMessage(
+    solo,
+    host,
+    { type: 'start', settings: { ...DEFAULT_SETTINGS, rounds: 1, guessSeconds: 30 } },
+    1_000,
+    () => eiffel,
+  ),
+)
+const stillGuessing = unwrap(applyMessage(solo, host, { type: 'timesUp' }, 2_000))
+assert(stillGuessing.phase === 'guessing', 'timer should not end early')
+solo = unwrap(applyMessage(solo, host, { type: 'timesUp' }, 1_000 + 30_000))
+assert(solo.phase === 'reveal', 'timer should reveal after the deadline')
 
 console.log('roomLogic.test.ts passed')

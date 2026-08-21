@@ -701,7 +701,22 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
-  background: #d8e2ea;
+  background: #14324a;
+}
+
+.map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
 }
 
 .guess-pin {

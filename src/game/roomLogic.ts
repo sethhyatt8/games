@@ -114,10 +114,21 @@ export function toRoomState(room: StoredRoom, selfId: string, roomCode: string):
     ? Object.entries(room.pins).flatMap(([playerId, pin]) => {
         const player = room.players[playerId]
         return player
-          ? [{ playerId, name: player.name, lat: pin.lat, lng: pin.lng }]
+          ? [
+              {
+                playerId,
+                name: player.name,
+                lat: pin.lat,
+                lng: pin.lng,
+                locked: pin.locked === true,
+              },
+            ]
           : []
       })
     : []
+  const lockedIds = Object.entries(room.pins)
+    .filter(([, pin]) => pin.locked)
+    .map(([id]) => id)
   return {
     roomCode,
     gameId: GAME_ID,
@@ -134,8 +145,10 @@ export function toRoomState(room: StoredRoom, selfId: string, roomCode: string):
       : null,
     answer: showAnswer && room.place ? { lat: room.place.lat, lng: room.place.lng } : null,
     myPin: room.pins[selfId] ?? null,
+    myLocked: room.pins[selfId]?.locked === true,
     pins,
     pinnedIds: Object.keys(room.pins),
+    lockedIds,
     rows: showAnswer ? room.rows : [],
     winnerName: room.phase === 'finale' ? room.winnerName : null,
   }
@@ -195,14 +208,24 @@ export function applyMessage(
   }
 
   if (message.type === 'pin' && room.phase === 'guessing') {
+    if (room.pins[senderId]?.locked) return room
     const pin = sanitizePin(message)
     if (!pin) return room
     if (room.deadlineMs && now > room.deadlineMs + 1500) return room
-    return { ...room, pins: { ...room.pins, [senderId]: pin } }
+    return { ...room, pins: { ...room.pins, [senderId]: { ...pin, locked: false } } }
+  }
+
+  if (message.type === 'lock' && room.phase === 'guessing') {
+    const pin = room.pins[senderId]
+    if (!pin) return { error: 'Drop a pin before you lock.' }
+    const pins = { ...room.pins, [senderId]: { ...pin, locked: true } }
+    const next = { ...room, pins }
+    if (allPlayersLocked(next)) return revealRound(next)
+    return next
   }
 
   if (message.type === 'timesUp' && room.phase === 'guessing') {
-    if (!deadlinePassed(room, now)) return room
+    if (!deadlinePassed(room, now) && !allPlayersLocked(room)) return room
     return revealRound(room)
   }
 
@@ -309,6 +332,11 @@ function finishGame(room: StoredRoom): StoredRoom {
     deadlineMs: null,
     guessStartedMs: null,
   }
+}
+
+export function allPlayersLocked(room: StoredRoom) {
+  const ids = Object.keys(room.players)
+  return ids.length > 0 && ids.every((id) => room.pins[id]?.locked === true)
 }
 
 function deadlinePassed(room: StoredRoom, now: number) {

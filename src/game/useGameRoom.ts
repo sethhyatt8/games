@@ -117,8 +117,12 @@ export function useGameRoom(session: RoomSession) {
     const path = `games/${code}`
 
     if (message.type === 'pin') {
-      if (latestState.current?.phase !== 'guessing') return
-      void rtdbSet(`${path}/pins/${id}`, { lat: message.lat, lng: message.lng })
+      if (latestState.current?.phase !== 'guessing' || latestState.current.myLocked) return
+      void rtdbSet(`${path}/pins/${id}`, {
+        lat: message.lat,
+        lng: message.lng,
+        locked: false,
+      })
       return
     }
 

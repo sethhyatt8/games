@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GuessMap, type MapPin } from '../components/GuessMap'
 import { formatMiles } from '../game/geo'
 import {
@@ -20,7 +20,9 @@ type RoomScreenProps = {
 export function RoomScreen({ session, onLeave }: RoomScreenProps) {
   const { state, error, status, send, disconnect } = useGameRoom(session)
   const [copied, setCopied] = useState(false)
-  const timesUpSent = useRef(false)
+  const [showBorders, setShowBorders] = useState(
+    () => localStorage.getItem('games-country-lines') === '1',
+  )
 
   const isHost = Boolean(state && state.selfId === (state.createdBy ?? state.hostId))
   const seconds = useGuessCountdown(state)
@@ -32,14 +34,16 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
   }, [copied])
 
   useEffect(() => {
-    if (state?.phase !== 'guessing') {
-      timesUpSent.current = false
-      return
+    if (state?.phase !== 'guessing' || !state.deadlineMs) return
+    const deadlineMs = state.deadlineMs
+    function maybeEnd() {
+      if (Date.now() < deadlineMs - 200) return
+      send({ type: 'timesUp' })
     }
-    if (seconds > 0 || timesUpSent.current) return
-    timesUpSent.current = true
-    send({ type: 'timesUp' })
-  }, [seconds, send, state?.phase])
+    maybeEnd()
+    const id = window.setInterval(maybeEnd, 400)
+    return () => window.clearInterval(id)
+  }, [send, state?.deadlineMs, state?.phase])
 
   function leave() {
     disconnect()
@@ -131,19 +135,45 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
             </p>
             <h1>{state.place?.name}</h1>
             <p className="hint">
-              Tap the map to drop your pin. {state.pinnedIds.length} of {state.players.length} pinned.
+              Tap the map, then lock your guess. {state.lockedIds.length} of {state.players.length} locked.
             </p>
           </div>
           <p className={seconds <= 8 ? 'timer urgent' : 'timer'}>{seconds}s</p>
         </header>
         <GuessMap
-          interactive
+          interactive={!state.myLocked}
+          showBorders={showBorders}
           pins={pins}
           onDrop={(lat, lng) => send({ type: 'pin', lat, lng })}
         />
-        <button className="btn ghost compact leave-map" type="button" onClick={leave}>
-          Leave
-        </button>
+        <div className="map-actions">
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={showBorders}
+              onChange={(event) => {
+                setShowBorders(event.target.checked)
+                localStorage.setItem('games-country-lines', event.target.checked ? '1' : '0')
+              }}
+            />
+            Country lines
+          </label>
+          {state.myLocked ? (
+            <p className="hint">Guess locked. Waiting on the others or the timer.</p>
+          ) : (
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!state.myPin}
+              onClick={() => send({ type: 'lock' })}
+            >
+              Lock guess
+            </button>
+          )}
+          <button className="btn ghost compact" type="button" onClick={leave}>
+            Leave
+          </button>
+        </div>
       </main>
     )
   }
@@ -159,7 +189,18 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
             <h1>How far off?</h1>
           </div>
         </header>
-        <GuessMap interactive={false} pins={revealPins(state)} />
+        <GuessMap interactive={false} showBorders={showBorders} pins={revealPins(state)} />
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={showBorders}
+            onChange={(event) => {
+              setShowBorders(event.target.checked)
+              localStorage.setItem('games-country-lines', event.target.checked ? '1' : '0')
+            }}
+          />
+          Country lines
+        </label>
         <Leaderboard state={state} />
         {isHost ? (
           <button className="btn primary" type="button" onClick={() => send({ type: 'nextRound' })}>

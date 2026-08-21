@@ -37,7 +37,9 @@ export type Player = {
   seenAt?: number
 }
 
-export type Pin = LatLng
+export type Pin = LatLng & {
+  locked?: boolean
+}
 
 export type RoundRow = {
   playerId: string
@@ -65,8 +67,10 @@ export type RoomState = {
   place: HiddenPlace | null
   answer: LatLng | null
   myPin: Pin | null
-  pins: Array<{ playerId: string; name: string; lat: number; lng: number }>
+  myLocked: boolean
+  pins: Array<{ playerId: string; name: string; lat: number; lng: number; locked: boolean }>
   pinnedIds: string[]
+  lockedIds: string[]
   rows: RoundRow[]
   winnerName: string | null
 }
@@ -75,6 +79,7 @@ export type ClientMessage =
   | { type: 'start'; settings: GameSettings }
   | { type: 'settings'; settings: GameSettings }
   | { type: 'pin'; lat: number; lng: number }
+  | { type: 'lock' }
   | { type: 'timesUp' }
   | { type: 'nextRound' }
   | { type: 'backToLobby' }
@@ -108,7 +113,9 @@ export function sanitizeGameSettings(raw: unknown): GameSettings {
 
 export function sanitizePin(raw: unknown): Pin | null {
   if (!isRecord(raw)) return null
-  return clampLatLng(Number(raw.lat), Number(raw.lng))
+  const coords = clampLatLng(Number(raw.lat), Number(raw.lng))
+  if (!coords) return null
+  return { ...coords, locked: raw.locked === true }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
