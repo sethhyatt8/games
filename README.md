@@ -1,31 +1,29 @@
 # Games
 
-Multiplayer party-games hub. This repo is a copy of the [Artists](https://github.com/sethhyatt8/artists) room layer so we can keep shipping `/artists` on its own.
+Party rooms for phone-in-hand group games. First title: **Where in the World is Steven San Francisco**.
 
-Stack: React + Vite + TypeScript on GitHub Pages, with live rooms (Firebase Realtime Database today; PartyKit files are leftover from an earlier pass).
+A place is named. Everyone drops a pin. When time is up, the map shows every guess and a miles-away leaderboard. Lowest total miles wins.
+
+The room layer (create a code, join on your own phone, host starts) is copied from [Artists](https://github.com/sethhyatt8/artists). Keep working on collage in that repo. This one is the games hub.
+
+Stack: React + Vite + TypeScript on GitHub Pages, with Firebase Realtime Database for live rooms.
 
 ## Run locally
 
 ```bash
 npm install
+```
+
+Rooms use the same Firebase project as Artists, under a `games/` path, so the two apps do not share rooms. `.env` is already set for local play.
+
+```bash
 npm run dev
 ```
 
-Copy `.env.example` to `.env` and put in a **new** Firebase Realtime Database URL. Do not reuse the Artists database, or the two apps will share rooms.
-
-- Web: http://localhost:5173
-
-Open the site on your laptop and on phones on the same Wi-Fi using your computer’s LAN address (Vite prints it). Each device can create or join with the room code. No player accounts.
-
-## Play on the internet
-
-1. **Web app** — GitHub Pages (`.github/workflows/deploy-pages.yml`).
-2. **Rooms** — add repo secret `VITE_FIREBASE_DATABASE_URL` for this app’s own Firebase project.
-
-Artists stays at https://sethhyatt8.github.io/artists. This app will be https://sethhyatt8.github.io/games once Pages is enabled.
+Open the Vite URL on your laptop and phones on the same Wi-Fi.
 
 ## Scripts
 
 - `npm run dev` — web app
+- `npm run test` — room logic
 - `npm run build` / `npm run lint`
-- `npm run deploy` — GitHub Pages via `gh-pages`

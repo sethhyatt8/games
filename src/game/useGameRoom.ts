@@ -4,7 +4,6 @@ import {
   addPlayer,
   applyMessage,
   emptyRoom,
-  isSpuriousDrawEnd,
   normalizeStoredRoom,
   playerCount,
   playerRecord,
@@ -21,7 +20,7 @@ export type RoomSession = {
 }
 
 function tabId() {
-  const key = 'artists-tab-id'
+  const key = 'games-tab-id'
   const existing = sessionStorage.getItem(key)
   if (existing) return existing
   const id = crypto.randomUUID()
@@ -29,16 +28,10 @@ function tabId() {
   return id
 }
 
-function piecesRecord(pieces: { id: string }[]) {
-  return Object.fromEntries(pieces.map((piece) => [piece.id, piece]))
-}
-
 export function useGameRoom(session: RoomSession) {
   const [state, setState] = useState<RoomState | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>(
-    'connecting',
-  )
+  const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>('connecting')
   const selfId = useRef(tabId())
   const sessionRef = useRef(session)
   const latestState = useRef<RoomState | null>(null)
@@ -55,7 +48,7 @@ export function useGameRoom(session: RoomSession) {
     const code = session.roomCode
     const id = selfId.current
     const name = sanitizeName(session.name)
-    const path = `rooms/${code}`
+    const path = `games/${code}`
     let stopped = false
 
     const stopListen = rtdbListen(path, (data) => {
@@ -68,9 +61,6 @@ export function useGameRoom(session: RoomSession) {
             players: { ...room.players, [id]: playerRecord(id, name) },
           } satisfies StoredRoom)
       setError(null)
-      if (latestRoom.current && isSpuriousDrawEnd(latestRoom.current, visible)) {
-        return
-      }
       latestRoom.current = visible
       latestState.current = toRoomState(visible, id, code)
       setState(latestState.current)
@@ -124,16 +114,11 @@ export function useGameRoom(session: RoomSession) {
     if (!isFirebaseConfigured()) return
     const code = sessionRef.current.roomCode
     const id = selfId.current
-    const path = `rooms/${code}`
+    const path = `games/${code}`
 
-    if (message.type === 'canvas') {
-      if (latestState.current?.phase !== 'drawing' || latestState.current.artistId !== id) {
-        return
-      }
-      void rtdbSet(
-        `${path}/pieces`,
-        message.pieces.length > 0 ? piecesRecord(message.pieces) : null,
-      )
+    if (message.type === 'pin') {
+      if (latestState.current?.phase !== 'guessing') return
+      void rtdbSet(`${path}/pins/${id}`, { lat: message.lat, lng: message.lng })
       return
     }
 
@@ -163,14 +148,8 @@ export function useGameRoom(session: RoomSession) {
   const disconnect = useCallback(() => {
     const code = sessionRef.current.roomCode
     const id = selfId.current
-    void rtdbSet(`rooms/${code}/players/${id}`, null)
+    void rtdbSet(`games/${code}/players/${id}`, null)
   }, [])
 
-  return {
-    state,
-    error,
-    status,
-    send,
-    disconnect,
-  }
+  return { state, error, status, send, disconnect }
 }

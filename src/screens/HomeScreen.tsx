@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { GAMES } from '../game/games'
 import {
   MAX_NAME_LENGTH,
   MAX_PLAYERS,
   ROOM_CODE_LENGTH,
+  GAME_TITLE,
   normalizeRoomCode,
   sanitizeName,
 } from '../game/protocol'
@@ -12,25 +14,19 @@ import type { RoomSession } from '../game/useGameRoom'
 type HomeScreenProps = {
   initialCode?: string
   onEnter: (session: RoomSession) => void
-  onPractice: () => void
 }
 
-export function HomeScreen({
-  initialCode = '',
-  onEnter,
-  onPractice,
-}: HomeScreenProps) {
-  const [name, setName] = useState(() => localStorage.getItem('artists-name') ?? '')
+export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
+  const [name, setName] = useState(() => localStorage.getItem('games-name') ?? '')
   const [code, setCode] = useState(initialCode)
-  const [mode, setMode] = useState<'choose' | 'join'>(
-    initialCode ? 'join' : 'choose',
-  )
+  const [mode, setMode] = useState<'choose' | 'join'>(initialCode ? 'join' : 'choose')
+  const game = GAMES[0]
 
   const cleanedName = useMemo(() => sanitizeName(name), [name])
   const cleanedCode = useMemo(() => normalizeRoomCode(code), [code])
 
   function persistName() {
-    localStorage.setItem('artists-name', cleanedName)
+    localStorage.setItem('games-name', cleanedName)
   }
 
   function createRoom() {
@@ -55,12 +51,16 @@ export function HomeScreen({
   return (
     <main className="screen home">
       <p className="eyebrow">Party rooms</p>
-      <h1>Artists</h1>
+      <h1>Games</h1>
       <p className="lede">
-        Collage-and-guess, one device each. The host picks a shape set, turn
-        timer, and number of rounds. Then one artist collages while everyone
-        else types guesses.
+        Create a room, share a code, play on your own phones. First up:{' '}
+        <strong>{GAME_TITLE}</strong>.
       </p>
+
+      <section className="game-card">
+        <p className="eyebrow">{game.title}</p>
+        <p>{game.blurb}</p>
+      </section>
 
       <label className="field">
         <span>Your name</span>
@@ -68,7 +68,7 @@ export function HomeScreen({
           autoComplete="nickname"
           maxLength={MAX_NAME_LENGTH}
           value={name}
-          placeholder="Artist"
+          placeholder="Player"
           onChange={(event) => setName(event.target.value)}
         />
       </label>
@@ -78,15 +78,8 @@ export function HomeScreen({
           <button className="btn primary" type="button" onClick={createRoom}>
             Create room
           </button>
-          <button
-            className="btn ghost"
-            type="button"
-            onClick={() => setMode('join')}
-          >
+          <button className="btn ghost" type="button" onClick={() => setMode('join')}>
             Join with a code
-          </button>
-          <button className="btn ghost" type="button" onClick={onPractice}>
-            Practice collage
           </button>
         </div>
       ) : (
@@ -117,18 +110,14 @@ export function HomeScreen({
             >
               Join room
             </button>
-            <button
-              className="btn ghost"
-              type="button"
-              onClick={() => setMode('choose')}
-            >
+            <button className="btn ghost" type="button" onClick={() => setMode('choose')}>
               Back
             </button>
           </div>
         </form>
       )}
 
-      <p className="hint">Up to {MAX_PLAYERS} players. No accounts needed to join.</p>
+      <p className="hint">Up to {MAX_PLAYERS} players. No accounts needed.</p>
     </main>
   )
 }
