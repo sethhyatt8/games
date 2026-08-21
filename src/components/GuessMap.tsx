@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import type { MapStyle } from '../game/protocol'
 
 export type MapPin = {
   id: string
@@ -13,6 +14,7 @@ export type MapPin = {
 type GuessMapProps = {
   pins: MapPin[]
   interactive: boolean
+  mapStyle?: MapStyle
   showBorders?: boolean
   onDrop?: (lat: number, lng: number) => void
 }
@@ -25,23 +27,23 @@ const COLORS = {
 
 const IMAGERY_URL =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-const BORDERS_URL =
+const LAND_URL =
   'https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json'
 
-let bordersCache: GeoJSON.FeatureCollection | null = null
-let bordersLoad: Promise<GeoJSON.FeatureCollection | null> | null = null
+let landCache: GeoJSON.FeatureCollection | null = null
+let landLoad: Promise<GeoJSON.FeatureCollection | null> | null = null
 
-function loadBorders() {
-  if (bordersCache) return Promise.resolve(bordersCache)
-  if (bordersLoad) return bordersLoad
-  bordersLoad = fetch(BORDERS_URL)
+function loadLand() {
+  if (landCache) return Promise.resolve(landCache)
+  if (landLoad) return landLoad
+  landLoad = fetch(LAND_URL)
     .then((response) => (response.ok ? response.json() : null))
     .then((data: GeoJSON.FeatureCollection | null) => {
-      bordersCache = data
+      landCache = data
       return data
     })
     .catch(() => null)
-  return bordersLoad
+  return landLoad
 }
 
 function iconFor(pin: MapPin) {
@@ -64,16 +66,25 @@ function escapeHtml(value: string) {
     .replaceAll('"', '&quot;')
 }
 
-export function GuessMap({ pins, interactive, showBorders = false, onDrop }: GuessMapProps) {
+export function GuessMap({
+  pins,
+  interactive,
+  mapStyle = 'plain',
+  showBorders = false,
+  onDrop,
+}: GuessMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<L.Map | null>(null)
-  const layerRef = useRef<L.LayerGroup | null>(null)
-  const bordersRef = useRef<L.GeoJSON | null>(null)
+  const pinsRef = useRef<L.LayerGroup | null>(null)
+  const tilesRef = useRef<L.TileLayer | null>(null)
+  const landRef = useRef<L.GeoJSON | null>(null)
   const onDropRef = useRef(onDrop)
   const interactiveRef = useRef(interactive)
+  const mapStyleRef = useRef(mapStyle)
   const showBordersRef = useRef(showBorders)
   onDropRef.current = onDrop
   interactiveRef.current = interactive
+  mapStyleRef.current = mapStyle
   showBordersRef.current = showBorders
 
   useEffect(() => {
@@ -88,11 +99,7 @@ export function GuessMap({ pins, interactive, showBorders = false, onDrop }: Gue
       attributionControl: true,
     }).setView([20, 0], 2)
 
-    L.tileLayer(IMAGERY_URL, {
-      attribution: 'Tiles &copy; Esri',
-    }).addTo(map)
-
-    layerRef.current = L.layerGroup().addTo(map)
+    pinsRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
     function onClick(event: L.LeafletMouseEvent) {
@@ -107,8 +114,9 @@ export function GuessMap({ pins, interactive, showBorders = false, onDrop }: Gue
       map.off('click', onClick)
       map.remove()
       mapRef.current = null
-      layerRef.current = null
-      bordersRef.current = null
+      pinsRef.current = null
+      tilesRef.current = null
+      landRef.current = null
     }
   }, [])
 
@@ -120,31 +128,57 @@ export function GuessMap({ pins, interactive, showBorders = false, onDrop }: Gue
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    if (!showBorders) {
-      bordersRef.current?.remove()
-      bordersRef.current = null
+
+    tilesRef.current?.remove()
+    tilesRef.current = null
+    landRef.current?.remove()
+    landRef.current = null
+
+    if (mapStyle === 'satellite') {
+      tilesRef.current = L.tileLayer(IMAGERY_URL, {
+        attribution: 'Tiles &copy; Esri',
+      }).addTo(map)
+      if (!showBorders) return
+      void loadLand().then((data) => {
+        if (!data || !mapRef.current || mapStyleRef.current !== 'satellite' || !showBordersRef.current) {
+          return
+        }
+        landRef.current = L.geoJSON(data, {
+          style: {
+            color: '#f4e6d3',
+            weight: 1,
+            opacity: 0.8,
+            fillOpacity: 0,
+          },
+        }).addTo(mapRef.current)
+        if (pinsRef.current) {
+          pinsRef.current.remove()
+          pinsRef.current.addTo(mapRef.current)
+        }
+      })
       return
     }
-    if (bordersRef.current) {
-      bordersRef.current.addTo(map)
-      return
-    }
-    void loadBorders().then((data) => {
-      if (!data || !mapRef.current || bordersRef.current || !showBordersRef.current) return
-      bordersRef.current = L.geoJSON(data, {
+
+    void loadLand().then((data) => {
+      if (!data || !mapRef.current || mapStyleRef.current !== 'plain') return
+      landRef.current = L.geoJSON(data, {
         style: {
-          color: '#f4e6d3',
-          weight: 1,
-          opacity: 0.75,
-          fillOpacity: 0,
+          color: showBordersRef.current ? '#8b929a' : '#ffffff',
+          weight: showBordersRef.current ? 1 : 0.6,
+          fillColor: '#ffffff',
+          fillOpacity: 1,
         },
       }).addTo(mapRef.current)
+      if (pinsRef.current) {
+        pinsRef.current.remove()
+        pinsRef.current.addTo(mapRef.current)
+      }
     })
-  }, [showBorders])
+  }, [mapStyle, showBorders])
 
   useEffect(() => {
     const map = mapRef.current
-    const layer = layerRef.current
+    const layer = pinsRef.current
     if (!map || !layer) return
     layer.clearLayers()
     const latLngs: L.LatLngExpression[] = []

@@ -11,14 +11,20 @@ export const MIN_ROUNDS = 1
 export const MAX_ROUNDS = 10
 export const GUESS_SECONDS_OPTIONS = [20, 30, 45, 60] as const
 
+export type MapStyle = 'plain' | 'satellite'
+
 export type GameSettings = {
   guessSeconds: number
   rounds: number
+  mapStyle: MapStyle
+  showBorders: boolean
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
   guessSeconds: 45,
   rounds: 5,
+  mapStyle: 'plain',
+  showBorders: false,
 }
 
 export const PHASE = {
@@ -108,7 +114,12 @@ export function sanitizeGameSettings(raw: unknown): GameSettings {
     typeof record.rounds === 'number' && Number.isFinite(record.rounds)
       ? Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, Math.round(record.rounds)))
       : DEFAULT_SETTINGS.rounds
-  return { guessSeconds, rounds }
+  return {
+    guessSeconds,
+    rounds,
+    mapStyle: record.mapStyle === 'satellite' ? 'satellite' : 'plain',
+    showBorders: record.showBorders === true,
+  }
 }
 
 export function sanitizePin(raw: unknown): Pin | null {

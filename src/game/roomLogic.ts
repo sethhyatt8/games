@@ -92,8 +92,8 @@ export function normalizeStoredRoom(raw: unknown): StoredRoom | null {
     players: normalizePlayers(raw.players),
     settings: sanitizeGameSettings(raw.settings),
     round: typeof raw.round === 'number' ? raw.round : 0,
-    deadlineMs: typeof raw.deadlineMs === 'number' ? raw.deadlineMs : null,
-    guessStartedMs: typeof raw.guessStartedMs === 'number' ? raw.guessStartedMs : null,
+    deadlineMs: asTime(raw.deadlineMs),
+    guessStartedMs: asTime(raw.guessStartedMs),
     place: normalizePlace(raw.place),
     usedPlaceIds: asStringArray(raw.usedPlaceIds),
     pins: normalizePins(raw.pins),
@@ -340,9 +340,12 @@ export function allPlayersLocked(room: StoredRoom) {
 }
 
 function deadlinePassed(room: StoredRoom, now: number) {
-  if (typeof room.deadlineMs === 'number') return now >= room.deadlineMs - 200
+  if (typeof room.guessStartedMs === 'number' && now - room.guessStartedMs < 2000) {
+    return false
+  }
+  if (typeof room.deadlineMs === 'number') return now >= room.deadlineMs
   if (typeof room.guessStartedMs === 'number') {
-    return now - room.guessStartedMs >= room.settings.guessSeconds * 1000 - 200
+    return now - room.guessStartedMs >= room.settings.guessSeconds * 1000
   }
   return false
 }
@@ -358,6 +361,11 @@ function pinHost(room: StoredRoom): StoredRoom {
 
 function isPhase(value: unknown): value is Phase {
   return value === 'lobby' || value === 'guessing' || value === 'reveal' || value === 'finale'
+}
+
+function asTime(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+  return Number.isFinite(n) && n > 1_000_000_000_000 ? n : null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

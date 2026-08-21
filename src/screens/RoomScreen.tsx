@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GuessMap, type MapPin } from '../components/GuessMap'
 import { formatMiles } from '../game/geo'
 import {
@@ -20,9 +20,7 @@ type RoomScreenProps = {
 export function RoomScreen({ session, onLeave }: RoomScreenProps) {
   const { state, error, status, send, disconnect } = useGameRoom(session)
   const [copied, setCopied] = useState(false)
-  const [showBorders, setShowBorders] = useState(
-    () => localStorage.getItem('games-country-lines') === '1',
-  )
+  const timerArmed = useRef(false)
 
   const isHost = Boolean(state && state.selfId === (state.createdBy ?? state.hostId))
   const seconds = useGuessCountdown(state)
@@ -34,16 +32,20 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
   }, [copied])
 
   useEffect(() => {
-    if (state?.phase !== 'guessing' || !state.deadlineMs) return
-    const deadlineMs = state.deadlineMs
-    function maybeEnd() {
-      if (Date.now() < deadlineMs - 200) return
-      send({ type: 'timesUp' })
+    if (state?.phase !== 'guessing') {
+      timerArmed.current = false
+      return
     }
-    maybeEnd()
-    const id = window.setInterval(maybeEnd, 400)
+    const deadlineMs = state.deadlineMs
+    const guessSeconds = state.settings.guessSeconds
+    const id = window.setInterval(() => {
+      const remaining = remainingSeconds({ deadlineMs, guessSeconds })
+      if (remaining > 1) timerArmed.current = true
+      if (!timerArmed.current || remaining > 0) return
+      send({ type: 'timesUp' })
+    }, 250)
     return () => window.clearInterval(id)
-  }, [send, state?.deadlineMs, state?.phase])
+  }, [send, state?.deadlineMs, state?.phase, state?.settings.guessSeconds])
 
   function leave() {
     disconnect()
@@ -142,22 +144,12 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
         </header>
         <GuessMap
           interactive={!state.myLocked}
-          showBorders={showBorders}
+          mapStyle={state.settings.mapStyle}
+          showBorders={state.settings.showBorders}
           pins={pins}
           onDrop={(lat, lng) => send({ type: 'pin', lat, lng })}
         />
         <div className="map-actions">
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={showBorders}
-              onChange={(event) => {
-                setShowBorders(event.target.checked)
-                localStorage.setItem('games-country-lines', event.target.checked ? '1' : '0')
-              }}
-            />
-            Country lines
-          </label>
           {state.myLocked ? (
             <p className="hint">Guess locked. Waiting on the others or the timer.</p>
           ) : (
@@ -189,18 +181,12 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
             <h1>How far off?</h1>
           </div>
         </header>
-        <GuessMap interactive={false} showBorders={showBorders} pins={revealPins(state)} />
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={showBorders}
-            onChange={(event) => {
-              setShowBorders(event.target.checked)
-              localStorage.setItem('games-country-lines', event.target.checked ? '1' : '0')
-            }}
-          />
-          Country lines
-        </label>
+        <GuessMap
+          interactive={false}
+          mapStyle={state.settings.mapStyle}
+          showBorders={state.settings.showBorders}
+          pins={revealPins(state)}
+        />
         <Leaderboard state={state} />
         {isHost ? (
           <button className="btn primary" type="button" onClick={() => send({ type: 'nextRound' })}>
@@ -341,6 +327,44 @@ function HostSettings({
               {value}
             </button>
           ))}
+        </div>
+      </label>
+      <label className="field">
+        <span>Map</span>
+        <div className="choice-row">
+          <button
+            className={settings.mapStyle === 'plain' ? 'btn primary compact' : 'btn ghost compact'}
+            type="button"
+            onClick={() => onChange({ ...settings, mapStyle: 'plain' })}
+          >
+            White
+          </button>
+          <button
+            className={settings.mapStyle === 'satellite' ? 'btn primary compact' : 'btn ghost compact'}
+            type="button"
+            onClick={() => onChange({ ...settings, mapStyle: 'satellite' })}
+          >
+            Satellite
+          </button>
+        </div>
+      </label>
+      <label className="field">
+        <span>Country lines</span>
+        <div className="choice-row">
+          <button
+            className={!settings.showBorders ? 'btn primary compact' : 'btn ghost compact'}
+            type="button"
+            onClick={() => onChange({ ...settings, showBorders: false })}
+          >
+            Off
+          </button>
+          <button
+            className={settings.showBorders ? 'btn primary compact' : 'btn ghost compact'}
+            type="button"
+            onClick={() => onChange({ ...settings, showBorders: true })}
+          >
+            On
+          </button>
         </div>
       </label>
       <button className="btn primary" type="button" onClick={() => onStart(settings)}>
