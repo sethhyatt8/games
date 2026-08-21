@@ -1,0 +1,84 @@
+:root {
+  --bg: #1a1410;
+  --bg-raise: #241c16;
+  --ink: #f4e6d3;
+  --muted: #c4b09a;
+  --line: #3d2a1f;
+  --ember: #e07a3d;
+  --ember-dim: rgba(224, 122, 61, 0.16);
+  --ready: #d7b56d;
+  --sans: 'Segoe UI', system-ui, sans-serif;
+  --display: Palatino, 'Palatino Linotype', Georgia, serif;
+
+  font: 18px/1.45 var(--sans);
+  color: var(--muted);
+  background: var(--bg);
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100svh;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: min(440px, 100%);
+  margin: 0 auto;
+  padding: 28px 20px 40px;
+}
+
+#root.wide {
+  width: 100%;
+  max-width: none;
+  min-height: 100svh;
+  height: 100svh;
+  padding: 8px 12px 12px;
+  display: flex;
+  overflow: hidden;
+}
+
+@media (min-width: 960px) {
+  #root.wide {
+    padding: 12px 20px 16px;
+  }
+}
+
+h1,
+h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+h1 {
+  font-size: 48px;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}

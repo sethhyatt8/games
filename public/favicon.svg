@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="Artists">
+  <rect width="32" height="32" rx="8" fill="#17233a"/>
+  <circle cx="16" cy="11" r="4" stroke="#fb7185" stroke-width="1.6" fill="#0d1627"/>
+  <path stroke="#b9c7e3" stroke-width="1.6" stroke-linecap="round" d="M8 25c1.5-4.5 4.2-6.5 8-6.5s6.5 2 8 6.5"/>
+  <path stroke="#3b5280" stroke-width="1.4" stroke-linecap="round" d="M22 8.5c1.2-.8 2.4-.6 3.2.4"/>
+</svg>
