@@ -1,7 +1,7 @@
 import { CUE_TRACKS } from './catalog'
 
 export const CUE_GAME_ID = 'cue'
-export const CUE_GAME_TITLE = 'Hit the Cue'
+export const CUE_GAME_TITLE = 'Sing in Your Head'
 export const MAX_PLAYERS = 6
 export const MAX_NAME_LENGTH = 20
 export const MIN_ROUNDS = 1
