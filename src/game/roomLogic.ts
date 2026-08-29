@@ -145,7 +145,12 @@ export function toRoomState(room: StoredRoom, selfId: string, roomCode: string):
     round: room.round,
     deadlineMs: room.deadlineMs,
     place: room.place
-      ? { id: room.place.id, name: room.place.name, category: room.place.category }
+      ? {
+          id: room.place.id,
+          name: room.place.name,
+          category: room.place.category,
+          photo: room.place.photo,
+        }
       : null,
     answer: showAnswer && room.place ? { lat: room.place.lat, lng: room.place.lng } : null,
     myPin: room.pins[selfId] ?? null,
@@ -283,6 +288,7 @@ function beginRound(
       category: place.category,
       lat: place.lat,
       lng: place.lng,
+      photo: place.photo,
     },
     usedPlaceIds: [...room.usedPlaceIds, place.id],
     pins: {},
@@ -422,7 +428,8 @@ function normalizePlace(raw: unknown): StoredPlace | null {
     raw.category === 'City' || raw.category === 'Landmark' || raw.category === 'Nature'
       ? raw.category
       : 'Landmark'
-  return { id: raw.id, name: raw.name, category, ...pin }
+  const photo = typeof raw.photo === 'string' && raw.photo.trim() ? raw.photo : undefined
+  return { id: raw.id, name: raw.name, category, photo, ...pin }
 }
 
 function isRoundRow(value: unknown): value is RoundRow {

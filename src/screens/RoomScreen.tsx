@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { GuessMap, type MapPin } from '../components/GuessMap'
+import { PlacePhoto } from '../components/PlacePhoto'
+import { PlayerRoster } from '../components/PlayerRoster'
 import { formatMiles } from '../game/geo'
 import {
   GAME_TITLE,
   GUESS_SECONDS_OPTIONS,
+  MAX_PLAYERS,
   MAX_ROUNDS,
   MIN_ROUNDS,
   type GameSettings,
@@ -106,9 +109,10 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
         <p className="lede">
           Share that code. Everyone drops a pin on the same place. Closest (fewest miles) wins.
         </p>
-        <PlayerList state={state} />
+        <PlayerRoster players={state.players} selfId={state.selfId} hostId={state.hostId} />
         {isHost ? (
           <HostSettings
+            playerCount={state.players.length}
             settings={state.settings}
             onChange={(settings) => send({ type: 'settings', settings })}
             onStart={(settings) => send({ type: 'start', settings })}
@@ -137,7 +141,9 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
             </p>
             <h1>{state.place?.name}</h1>
             <p className="hint">
-              Tap the map, then lock your guess. {state.lockedIds.length} of {state.players.length} locked.
+              Tap the map, then lock your guess. {state.lockedIds.length} of {state.players.length}{' '}
+              locked.
+              {isHost ? ` · ${state.players.length} playing` : ''}
             </p>
           </div>
           <p className={seconds <= 8 ? 'timer urgent' : 'timer'}>{seconds}s</p>
@@ -187,6 +193,7 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
           showBorders={state.settings.showBorders}
           pins={revealPins(state)}
         />
+        <PlacePhoto place={state.place} />
         <Leaderboard state={state} />
         {isHost ? (
           <button className="btn primary" type="button" onClick={() => send({ type: 'nextRound' })}>
@@ -237,24 +244,6 @@ function revealPins(state: RoomState): MapPin[] {
   return pins
 }
 
-function PlayerList({ state }: { state: RoomState }) {
-  return (
-    <ul className="player-list">
-      {state.players.map((player) => (
-        <li key={player.id}>
-          <span>
-            {player.name}
-            {player.id === state.selfId ? ' (you)' : ''}
-          </span>
-          <span className="player-tags">
-            {player.id === state.hostId ? <span className="tag">Host</span> : null}
-          </span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 function Leaderboard({ state, totals = false }: { state: RoomState; totals?: boolean }) {
   const rows = totals
     ? [...state.players]
@@ -288,10 +277,12 @@ function Leaderboard({ state, totals = false }: { state: RoomState; totals?: boo
 }
 
 function HostSettings({
+  playerCount,
   settings,
   onChange,
   onStart,
 }: {
+  playerCount: number
   settings: GameSettings
   onChange: (settings: GameSettings) => void
   onStart: (settings: GameSettings) => void
@@ -299,6 +290,10 @@ function HostSettings({
   return (
     <section className="panel settings">
       <h2>Host setup</h2>
+      <p className="hint host-player-note">
+        {playerCount} of {MAX_PLAYERS} players in the room
+        {playerCount < 2 ? ' — solo works too' : ''}
+      </p>
       <label className="field">
         <span>Guess time</span>
         <div className="choice-row">

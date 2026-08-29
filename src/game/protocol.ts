@@ -57,6 +57,7 @@ export type HiddenPlace = {
   id: string
   name: string
   category: Place['category']
+  photo?: string
 }
 
 export type RoomState = {

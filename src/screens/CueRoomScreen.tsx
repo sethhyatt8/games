@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { PlayerRoster } from '../components/PlayerRoster'
 import { enableAudio, playTrack, stopPlayback } from '../cue/audio'
 import { trackById } from '../cue/catalog'
 import {
   CUE_GAME_TITLE,
   GUESS_SECONDS_OPTIONS,
+  MAX_PLAYERS,
   MAX_ROUNDS,
   MIN_ROUNDS,
   formatOffset,
@@ -128,22 +130,13 @@ export function CueRoomScreen({ session, onLeave }: CueRoomScreenProps) {
         <p className="lede">
           You’ll hear the start of a song. It fades out. Tap when you think the cue happens.
         </p>
-        <ul className="player-list">
-          {state.players.map((player) => (
-            <li key={player.id}>
-              <span>
-                {player.name}
-                {player.id === state.selfId ? ' (you)' : ''}
-              </span>
-              {player.id === state.hostId ? <span className="tag">Host</span> : null}
-            </li>
-          ))}
-        </ul>
+        <PlayerRoster players={state.players} selfId={state.selfId} hostId={state.hostId} />
         <button className="btn ghost" type="button" onClick={() => void turnOnSound()}>
           {soundOn ? 'Sound is on' : 'Tap to enable sound'}
         </button>
         {isHost ? (
           <HostSettings
+            playerCount={state.players.length}
             settings={state.settings}
             onChange={(settings) => send({ type: 'settings', settings })}
             onStart={(settings) => send({ type: 'start', settings })}
@@ -287,10 +280,12 @@ export function CueRoomScreen({ session, onLeave }: CueRoomScreenProps) {
 }
 
 function HostSettings({
+  playerCount,
   settings,
   onChange,
   onStart,
 }: {
+  playerCount: number
   settings: CueSettings
   onChange: (settings: CueSettings) => void
   onStart: (settings: CueSettings) => void
@@ -298,6 +293,10 @@ function HostSettings({
   return (
     <section className="panel settings">
       <h2>Host setup</h2>
+      <p className="hint host-player-note">
+        {playerCount} of {MAX_PLAYERS} players in the room
+        {playerCount < 2 ? ' — solo works too' : ''}
+      </p>
       <label className="field">
         <span>Time after the fade</span>
         <div className="choice-row">
