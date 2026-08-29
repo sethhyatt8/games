@@ -16,12 +16,6 @@ export default function App() {
   const initialCode = useMemo(() => readRoomFromUrl(), [])
   const [session, setSession] = useState<RoomSession | null>(null)
 
-  useEffect(() => {
-    const root = document.getElementById('root')
-    root?.classList.toggle('wide', Boolean(session && session.gameId !== 'cue'))
-    return () => root?.classList.remove('wide')
-  }, [session])
-
   function enter(next: RoomSession) {
     const url = new URL(window.location.href)
     url.searchParams.set('room', next.roomCode)

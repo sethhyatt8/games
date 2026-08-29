@@ -327,9 +327,11 @@ function HostSettings({
           ))}
         </div>
       </label>
-      <button className="btn primary" type="button" onClick={() => onStart(settings)}>
-        Start game
-      </button>
+      <div className="settings-start">
+        <button className="btn primary" type="button" onClick={() => onStart(settings)}>
+          Start game
+        </button>
+      </div>
     </section>
   )
 }

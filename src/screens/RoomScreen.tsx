@@ -29,6 +29,13 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
   const seconds = useGuessCountdown(state)
 
   useEffect(() => {
+    const root = document.getElementById('root')
+    const wide = state?.phase === 'guessing' || state?.phase === 'reveal'
+    root?.classList.toggle('wide', Boolean(wide))
+    return () => root?.classList.remove('wide')
+  }, [state?.phase])
+
+  useEffect(() => {
     if (!copied) return
     const timer = window.setTimeout(() => setCopied(false), 1600)
     return () => window.clearTimeout(timer)
@@ -362,9 +369,11 @@ function HostSettings({
           </button>
         </div>
       </label>
-      <button className="btn primary" type="button" onClick={() => onStart(settings)}>
-        Start game
-      </button>
+      <div className="settings-start">
+        <button className="btn primary" type="button" onClick={() => onStart(settings)}>
+          Start game
+        </button>
+      </div>
     </section>
   )
 }

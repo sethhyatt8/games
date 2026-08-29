@@ -210,6 +210,19 @@
   gap: 16px;
 }
 
+.settings .settings-start {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-top: 4px;
+  padding-top: 12px;
+  background: linear-gradient(to bottom, transparent, var(--bg-raise) 28%);
+}
+
+.panel.settings .settings-start {
+  background: linear-gradient(to bottom, transparent, var(--bg) 28%);
+}
+
 .choice-row {
   display: flex;
   flex-wrap: wrap;
@@ -380,6 +393,13 @@
 .screen.room {
   width: min(440px, 100%);
   margin-inline: auto;
+}
+
+#root.wide > .screen.room {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
 }
 
 .screen.room.pick {
@@ -753,6 +773,12 @@
   height: 100%;
   min-height: 0;
   gap: 10px;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+#root.wide > .screen.map-room {
+  flex: 1;
 }
 
 .map-header {
