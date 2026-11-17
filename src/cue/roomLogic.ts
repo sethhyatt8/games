@@ -1,3 +1,5 @@
+import { sanitizeCharacterId } from '../game/characters'
+import { applyIdentity, makePlayer } from '../game/protocol'
 import { pickTrack, trackById, type CueTrack } from './catalog'
 import {
   CUE_GAME_ID,
@@ -5,7 +7,6 @@ import {
   MAX_PLAYERS,
   sanitizeCueSettings,
   sanitizeGuessMs,
-  sanitizeName,
   type CueGuess,
   type CueMessage,
   type CuePhase,
@@ -34,13 +35,17 @@ export type StoredCueRoom = {
   winnerName: string | null
 }
 
-export function emptyCueRoom(hostId: string, name: string): StoredCueRoom {
+export function emptyCueRoom(
+  hostId: string,
+  name: string,
+  characterId?: string | null,
+): StoredCueRoom {
   return {
     gameId: CUE_GAME_ID,
     phase: 'lobby',
     hostId,
     createdBy: hostId,
-    players: { [hostId]: playerRecord(hostId, name) },
+    players: { [hostId]: playerRecord(hostId, name, 0, characterId) },
     settings: { ...DEFAULT_CUE_SETTINGS },
     round: 0,
     deadlineMs: null,
@@ -53,8 +58,13 @@ export function emptyCueRoom(hostId: string, name: string): StoredCueRoom {
   }
 }
 
-export function playerRecord(id: string, name: string, score = 0): CuePlayer {
-  return { id, name: sanitizeName(name), score, seenAt: Date.now() }
+export function playerRecord(
+  id: string,
+  name: string,
+  score = 0,
+  characterId?: string | null,
+): CuePlayer {
+  return makePlayer(id, name, score, characterId)
 }
 
 export function playerCount(room: StoredCueRoom) {
@@ -143,13 +153,18 @@ export function toCueRoomState(
   }
 }
 
-export function addCuePlayer(room: StoredCueRoom, id: string, name: string): StoredCueRoom | string {
+export function addCuePlayer(
+  room: StoredCueRoom,
+  id: string,
+  name: string,
+  characterId?: string | null,
+): StoredCueRoom | string {
   if (room.players[id]) {
     return pinHost({
       ...room,
       players: {
         ...room.players,
-        [id]: { ...room.players[id], name: sanitizeName(name), seenAt: Date.now() },
+        [id]: applyIdentity(room.players[id], name, characterId),
       },
     })
   }
@@ -158,7 +173,7 @@ export function addCuePlayer(room: StoredCueRoom, id: string, name: string): Sto
     ...room,
     players: {
       ...room.players,
-      [id]: playerRecord(id, name),
+      [id]: playerRecord(id, name, 0, characterId),
     },
   })
 }
@@ -378,11 +393,15 @@ function normalizePlayers(raw: unknown): Record<string, CuePlayer> {
   const players: Record<string, CuePlayer> = {}
   for (const [id, value] of Object.entries(raw)) {
     if (!isRecord(value)) continue
+    const character = sanitizeCharacterId(
+      typeof value.characterId === 'string' ? value.characterId : undefined,
+    )
     players[id] = {
       id: typeof value.id === 'string' ? value.id : id,
       name: typeof value.name === 'string' && value.name.trim() ? value.name : 'Player',
       score: typeof value.score === 'number' ? value.score : 0,
       seenAt: typeof value.seenAt === 'number' ? value.seenAt : undefined,
+      ...(character ? { characterId: character } : {}),
     }
   }
   return players

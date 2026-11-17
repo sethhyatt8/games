@@ -1,3 +1,4 @@
+import { sanitizeCharacterId } from './characters'
 import { clampLatLng, type LatLng } from './geo'
 import type { Place } from './locations'
 
@@ -41,6 +42,29 @@ export type Player = {
   name: string
   score: number
   seenAt?: number
+  characterId?: string
+}
+
+export function makePlayer(
+  id: string,
+  name: string,
+  score = 0,
+  characterId?: string | null,
+): Player {
+  const character = sanitizeCharacterId(characterId)
+  const player: Player = { id, name: sanitizeName(name), score, seenAt: Date.now() }
+  if (character) player.characterId = character
+  return player
+}
+
+/** `characterId` undefined keeps the current avatar. null clears it. */
+export function applyIdentity(player: Player, name: string, characterId?: string | null): Player {
+  const next: Player = { ...player, name: sanitizeName(name), seenAt: Date.now() }
+  if (characterId === undefined) return next
+  const character = sanitizeCharacterId(characterId)
+  if (character) next.characterId = character
+  else delete next.characterId
+  return next
 }
 
 export type Pin = LatLng & {
@@ -75,7 +99,14 @@ export type RoomState = {
   answer: LatLng | null
   myPin: Pin | null
   myLocked: boolean
-  pins: Array<{ playerId: string; name: string; lat: number; lng: number; locked: boolean }>
+  pins: Array<{
+    playerId: string
+    name: string
+    lat: number
+    lng: number
+    locked: boolean
+    characterId?: string
+  }>
   pinnedIds: string[]
   lockedIds: string[]
   rows: RoundRow[]

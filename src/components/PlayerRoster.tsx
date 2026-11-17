@@ -1,7 +1,14 @@
-import { MAX_PLAYERS, type Player } from '../game/protocol'
+import { PlayerName } from './PlayerName'
+import { MAX_PLAYERS } from '../game/protocol'
+
+type RosterPlayer = {
+  id: string
+  name: string
+  characterId?: string
+}
 
 type PlayerRosterProps = {
-  players: Player[]
+  players: RosterPlayer[]
   selfId: string
   hostId: string | null
 }
@@ -18,10 +25,11 @@ export function PlayerRoster({ players, selfId, hostId }: PlayerRosterProps) {
       <ul className="player-list">
         {players.map((player) => (
           <li key={player.id}>
-            <span>
-              {player.name}
-              {player.id === selfId ? ' (you)' : ''}
-            </span>
+            <PlayerName
+              name={player.name}
+              characterId={player.characterId}
+              you={player.id === selfId}
+            />
             <span className="player-tags">
               {player.id === hostId ? <span className="tag">Host</span> : null}
             </span>

@@ -111,4 +111,9 @@ assert(stillGuessing.phase === 'guessing', 'timer should not end early')
 solo = unwrap(applyMessage(solo, host, { type: 'timesUp' }, 1_000 + 30_000))
 assert(solo.phase === 'reveal', 'timer should reveal after the deadline')
 
+const faced = emptyRoom('host-face', 'Ada', 'emily')
+assert(faced.players['host-face']?.characterId === 'emily', 'map rooms store a known avatar')
+const dropped = addPlayer(faced, 'guest-face', 'Bea', 'nope')
+assert(typeof dropped !== 'string' && dropped.players['guest-face']?.characterId === undefined, 'unknown avatars are dropped')
+
 console.log('roomLogic.test.ts passed')

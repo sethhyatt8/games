@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { CharacterAvatar } from '../components/CharacterAvatar'
+import { CHARACTERS, findCharacter } from '../game/characters'
 import { GAMES, type GameKind } from '../game/games'
 import {
   MAX_NAME_LENGTH,
@@ -10,41 +12,72 @@ import {
 import { generateRoomCode } from '../game/roomCode'
 import type { RoomSession } from '../game/useGameRoom'
 
+const NAME_KEY = 'games-name'
+const CHARACTER_KEY = 'games-character-id'
+
 type HomeScreenProps = {
   initialCode?: string
+  initialGame?: GameKind | null
   onEnter: (session: RoomSession) => void
 }
 
-export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
-  const [name, setName] = useState(() => localStorage.getItem('games-name') ?? '')
+function savedCharacterId() {
+  const own = localStorage.getItem(CHARACTER_KEY)
+  const fromArtists = own ? null : localStorage.getItem('artists-character-id')
+  return findCharacter(own ?? fromArtists)?.id ?? null
+}
+
+export function HomeScreen({ initialCode = '', initialGame = null, onEnter }: HomeScreenProps) {
+  const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '')
   const [code, setCode] = useState(initialCode)
   const [mode, setMode] = useState<'choose' | 'join'>(initialCode ? 'join' : 'choose')
-  const [gameId, setGameId] = useState<GameKind>('steven')
+  const [gameId, setGameId] = useState<GameKind>(initialGame ?? 'steven')
+  const [characterId, setCharacterId] = useState<string | null>(savedCharacterId)
 
-  const cleanedName = useMemo(() => sanitizeName(name), [name])
+  const selected = findCharacter(characterId)
+  const trimmed = name.replace(/\s+/g, ' ').trim()
+  const displayName = sanitizeName(trimmed || selected?.name)
   const cleanedCode = useMemo(() => normalizeRoomCode(code), [code])
 
-  function persistName() {
-    localStorage.setItem('games-name', cleanedName)
+  function persistIdentity() {
+    localStorage.setItem(NAME_KEY, trimmed || selected?.name || displayName)
+    if (selected) localStorage.setItem(CHARACTER_KEY, selected.id)
+    else localStorage.removeItem(CHARACTER_KEY)
+  }
+
+  function pickCharacter(id: string) {
+    const next = findCharacter(id)
+    if (!next) return
+    const previous = findCharacter(characterId)
+    setCharacterId(next.id)
+    if (!trimmed || trimmed === previous?.name) setName(next.name)
+  }
+
+  function pickGuest() {
+    const previous = findCharacter(characterId)
+    setCharacterId(null)
+    if (trimmed && previous && trimmed === previous.name) setName('')
   }
 
   function createRoom() {
-    persistName()
+    persistIdentity()
     onEnter({
       intent: 'create',
-      name: cleanedName,
+      name: displayName,
       roomCode: generateRoomCode(),
       gameId,
+      characterId: selected?.id,
     })
   }
 
   function joinRoom() {
     if (cleanedCode.length !== ROOM_CODE_LENGTH) return
-    persistName()
+    persistIdentity()
     onEnter({
       intent: 'join',
-      name: cleanedName,
+      name: displayName,
       roomCode: cleanedCode,
+      characterId: selected?.id,
     })
   }
 
@@ -53,6 +86,42 @@ export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
       <p className="eyebrow">Party rooms</p>
       <h1>Games</h1>
       <p className="lede">Create a room, share a code, play on your own phones.</p>
+
+      <div className="field">
+        <span>Who’s playing?</span>
+        <div className="character-grid">
+          {CHARACTERS.map((character) => (
+            <button
+              key={character.id}
+              className={characterId === character.id ? 'character-pick selected' : 'character-pick'}
+              type="button"
+              onClick={() => pickCharacter(character.id)}
+            >
+              <CharacterAvatar characterId={character.id} name={character.name} size={56} />
+              <span>{character.name}</span>
+            </button>
+          ))}
+          <button
+            className={characterId === null ? 'character-pick selected' : 'character-pick'}
+            type="button"
+            onClick={pickGuest}
+          >
+            <CharacterAvatar name={trimmed || 'Guest'} size={56} />
+            <span>Guest</span>
+          </button>
+        </div>
+      </div>
+
+      <label className="field">
+        <span>Your name</span>
+        <input
+          autoComplete="nickname"
+          maxLength={MAX_NAME_LENGTH}
+          value={name}
+          placeholder={selected?.name ?? 'Player'}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </label>
 
       {mode === 'choose' ? (
         <div className="game-list">
@@ -69,17 +138,6 @@ export function HomeScreen({ initialCode = '', onEnter }: HomeScreenProps) {
           ))}
         </div>
       ) : null}
-
-      <label className="field">
-        <span>Your name</span>
-        <input
-          autoComplete="nickname"
-          maxLength={MAX_NAME_LENGTH}
-          value={name}
-          placeholder="Player"
-          onChange={(event) => setName(event.target.value)}
-        />
-      </label>
 
       {mode === 'choose' ? (
         <div className="actions">

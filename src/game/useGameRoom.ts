@@ -11,13 +11,16 @@ import {
   toRoomState,
   type StoredRoom,
 } from './roomLogic'
+import { sanitizeCharacterId } from './characters'
+import type { GameKind } from './games'
 import { sanitizeName, type ClientMessage, type RoomState } from './protocol'
 
 export type RoomSession = {
   roomCode: string
   name: string
   intent: 'create' | 'join'
-  gameId?: 'steven' | 'cue'
+  gameId?: GameKind
+  characterId?: string
 }
 
 function tabId() {
@@ -31,24 +34,28 @@ function tabId() {
 
 export function useGameRoom(session: RoomSession) {
   const [state, setState] = useState<RoomState | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>('connecting')
+  const configured = isFirebaseConfigured()
+  const [error, setError] = useState<string | null>(
+    configured ? null : 'Firebase is not configured yet.',
+  )
+  const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>(
+    configured ? 'connecting' : 'closed',
+  )
   const selfId = useRef(tabId())
   const sessionRef = useRef(session)
   const latestState = useRef<RoomState | null>(null)
   const latestRoom = useRef<StoredRoom | null>(null)
-  sessionRef.current = session
+  useEffect(() => {
+    sessionRef.current = session
+  })
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
-      setError('Firebase is not configured yet.')
-      setStatus('closed')
-      return
-    }
+    if (!configured) return
 
     const code = session.roomCode
     const id = selfId.current
     const name = sanitizeName(session.name)
+    const characterId = sanitizeCharacterId(session.characterId) ?? null
     const path = `games/${code}`
     let stopped = false
 
@@ -59,7 +66,7 @@ export function useGameRoom(session: RoomSession) {
         ? room
         : ({
             ...room,
-            players: { ...room.players, [id]: playerRecord(id, name) },
+            players: { ...room.players, [id]: playerRecord(id, name, 0, characterId) },
           } satisfies StoredRoom)
       setError(null)
       latestRoom.current = visible
@@ -71,14 +78,14 @@ export function useGameRoom(session: RoomSession) {
       const room = normalizeStoredRoom(current)
       if (session.intent === 'join') {
         if (!room || playerCount(room) === 0) return undefined
-        const next = addPlayer(room, id, name)
+        const next = addPlayer(room, id, name, characterId)
         return typeof next === 'string' ? undefined : toFirebaseRoom(next)
       }
       if (room && playerCount(room) > 0) {
-        const next = addPlayer(room, id, name)
+        const next = addPlayer(room, id, name, characterId)
         return typeof next === 'string' ? undefined : toFirebaseRoom(next)
       }
-      return toFirebaseRoom(emptyRoom(id, name))
+      return toFirebaseRoom(emptyRoom(id, name, characterId))
     })
       .then((result) => {
         if (stopped) return
@@ -109,7 +116,7 @@ export function useGameRoom(session: RoomSession) {
       window.clearInterval(heartbeat)
       void rtdbSet(`${path}/players/${id}`, null)
     }
-  }, [session.intent, session.name, session.roomCode])
+  }, [configured, session.characterId, session.intent, session.name, session.roomCode])
 
   const send = useCallback((message: ClientMessage) => {
     if (!isFirebaseConfigured()) return

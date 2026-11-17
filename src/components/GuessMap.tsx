@@ -9,6 +9,7 @@ export type MapPin = {
   lat: number
   lng: number
   kind: 'self' | 'other' | 'answer'
+  portrait?: string
 }
 
 type GuessMapProps = {
@@ -49,12 +50,16 @@ function loadLand() {
 function iconFor(pin: MapPin) {
   const color = COLORS[pin.kind]
   const label = pin.kind === 'answer' ? '★' : ''
+  const face = pin.portrait
+    ? `background-image:url('${escapeHtml(pin.portrait)}')`
+    : `background:${color}`
+  const size = pin.portrait ? 32 : 22
   return L.divIcon({
     className: 'guess-pin',
-    html: `<div class="guess-pin-dot ${pin.kind}" style="background:${color}">${label}</div>
+    html: `<div class="guess-pin-dot ${pin.kind}${pin.portrait ? ' has-face' : ''}" style="${face}">${pin.portrait ? '' : label}</div>
       <div class="guess-pin-label">${escapeHtml(pin.name)}</div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   })
 }
 
@@ -82,10 +87,12 @@ export function GuessMap({
   const interactiveRef = useRef(interactive)
   const mapStyleRef = useRef(mapStyle)
   const showBordersRef = useRef(showBorders)
-  onDropRef.current = onDrop
-  interactiveRef.current = interactive
-  mapStyleRef.current = mapStyle
-  showBordersRef.current = showBorders
+  useEffect(() => {
+    onDropRef.current = onDrop
+    interactiveRef.current = interactive
+    mapStyleRef.current = mapStyle
+    showBordersRef.current = showBorders
+  })
 
   useEffect(() => {
     const node = containerRef.current

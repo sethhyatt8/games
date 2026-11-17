@@ -1,11 +1,13 @@
+import { sanitizeCharacterId } from './characters'
 import { milesBetween, type LatLng } from './geo'
 import { pickPlace, type Place } from './locations'
 import {
   DEFAULT_SETTINGS,
   GAME_ID,
   MAX_PLAYERS,
+  applyIdentity,
+  makePlayer,
   sanitizeGameSettings,
-  sanitizeName,
   sanitizePin,
   type ClientMessage,
   type GameSettings,
@@ -38,13 +40,13 @@ export type StoredRoom = {
   winnerName: string | null
 }
 
-export function emptyRoom(hostId: string, name: string): StoredRoom {
+export function emptyRoom(hostId: string, name: string, characterId?: string | null): StoredRoom {
   return {
     gameId: GAME_ID,
     phase: 'lobby',
     hostId,
     createdBy: hostId,
-    players: { [hostId]: playerRecord(hostId, name) },
+    players: { [hostId]: playerRecord(hostId, name, 0, characterId) },
     settings: { ...DEFAULT_SETTINGS },
     round: 0,
     deadlineMs: null,
@@ -57,8 +59,13 @@ export function emptyRoom(hostId: string, name: string): StoredRoom {
   }
 }
 
-export function playerRecord(id: string, name: string, score = 0): Player {
-  return { id, name: sanitizeName(name), score, seenAt: Date.now() }
+export function playerRecord(
+  id: string,
+  name: string,
+  score = 0,
+  characterId?: string | null,
+): Player {
+  return makePlayer(id, name, score, characterId)
 }
 
 export function playerCount(room: StoredRoom) {
@@ -82,7 +89,7 @@ export function toFirebaseRoom(room: StoredRoom) {
 
 export function normalizeStoredRoom(raw: unknown): StoredRoom | null {
   if (!isRecord(raw) || !isPhase(raw.phase)) return null
-  if (raw.gameId === 'cue') return null
+  if (raw.gameId === 'cue' || raw.gameId === 'trivia') return null
   return {
     gameId: GAME_ID,
     phase: raw.phase,
@@ -125,6 +132,7 @@ export function toRoomState(room: StoredRoom, selfId: string, roomCode: string):
                 lat: pin.lat,
                 lng: pin.lng,
                 locked: pin.locked === true,
+                characterId: player.characterId,
               },
             ]
           : []
@@ -163,13 +171,18 @@ export function toRoomState(room: StoredRoom, selfId: string, roomCode: string):
   }
 }
 
-export function addPlayer(room: StoredRoom, id: string, name: string): StoredRoom | string {
+export function addPlayer(
+  room: StoredRoom,
+  id: string,
+  name: string,
+  characterId?: string | null,
+): StoredRoom | string {
   if (room.players[id]) {
     return pinHost({
       ...room,
       players: {
         ...room.players,
-        [id]: { ...room.players[id], name: sanitizeName(name), seenAt: Date.now() },
+        [id]: applyIdentity(room.players[id], name, characterId),
       },
     })
   }
@@ -178,7 +191,7 @@ export function addPlayer(room: StoredRoom, id: string, name: string): StoredRoo
     ...room,
     players: {
       ...room.players,
-      [id]: playerRecord(id, name),
+      [id]: playerRecord(id, name, 0, characterId),
     },
   })
 }
@@ -399,11 +412,15 @@ function normalizePlayers(raw: unknown): Record<string, Player> {
   const players: Record<string, Player> = {}
   for (const [id, value] of Object.entries(raw)) {
     if (!isRecord(value)) continue
+    const character = sanitizeCharacterId(
+      typeof value.characterId === 'string' ? value.characterId : undefined,
+    )
     players[id] = {
       id: typeof value.id === 'string' ? value.id : id,
       name: typeof value.name === 'string' && value.name.trim() ? value.name : 'Player',
       score: typeof value.score === 'number' ? value.score : 0,
       seenAt: typeof value.seenAt === 'number' ? value.seenAt : undefined,
+      ...(character ? { characterId: character } : {}),
     }
   }
   return players
