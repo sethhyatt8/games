@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PlayerName } from '../components/PlayerName'
 import { PlayerRoster } from '../components/PlayerRoster'
 import { enableAudio, playTrack, stopPlayback } from '../cue/audio'
 import { trackById } from '../cue/catalog'
@@ -53,17 +54,21 @@ export function CueRoomScreen({ session, onLeave }: CueRoomScreenProps) {
     return () => window.clearInterval(id)
   }, [send, state?.deadlineMs, state?.phase, state?.settings.guessSeconds])
 
+  const cuePhase = state?.phase
+  const cueStartedAt = state?.startedAtMs
+  const cueTrackId = state?.trackId
+  const cuePreviewMs = state?.previewMs
   useEffect(() => {
-    if (!state || state.phase !== 'guessing' || !state.startedAtMs || !state.trackId) return
-    const track = trackById(state.trackId)
-    if (!track || state.previewMs == null) return
+    if (cuePhase !== 'guessing' || !cueStartedAt || !cueTrackId || cuePreviewMs == null) return
+    const track = trackById(cueTrackId)
+    if (!track) return
     void playTrack({
       track,
-      startedAtMs: state.startedAtMs,
-      fadeAfterMs: state.previewMs,
+      startedAtMs: cueStartedAt,
+      fadeAfterMs: cuePreviewMs,
     })
     return () => stopPlayback()
-  }, [state?.phase, state?.previewMs, state?.startedAtMs, state?.trackId])
+  }, [cuePhase, cuePreviewMs, cueStartedAt, cueTrackId])
 
   function leave() {
     stopPlayback()
@@ -211,10 +216,11 @@ export function CueRoomScreen({ session, onLeave }: CueRoomScreenProps) {
           {state.rows.map((row, index) => (
             <li key={row.playerId} className={row.playerId === state.selfId ? 'you' : undefined}>
               <span className="rank">{index + 1}</span>
-              <span>
-                {row.name}
-                {row.playerId === state.selfId ? ' (you)' : ''}
-              </span>
+              <PlayerName
+                name={row.name}
+                characterId={state.players.find((player) => player.id === row.playerId)?.characterId}
+                you={row.playerId === state.selfId}
+              />
               <strong>
                 {row.errorMs == null ? 'No tap' : formatOffset(row.errorMs)}
               </strong>
@@ -259,10 +265,11 @@ export function CueRoomScreen({ session, onLeave }: CueRoomScreenProps) {
           .map((player, index) => (
             <li key={player.id} className={player.id === state.selfId ? 'you' : undefined}>
               <span className="rank">{index + 1}</span>
-              <span>
-                {player.name}
-                {player.id === state.selfId ? ' (you)' : ''}
-              </span>
+              <PlayerName
+                name={player.name}
+                characterId={player.characterId}
+                you={player.id === state.selfId}
+              />
               <strong>{formatOffset(player.score)}</strong>
             </li>
           ))}
@@ -347,24 +354,19 @@ function secondsLeftAfterFade(state: CueRoomState) {
 }
 
 function useCueCountdown(state: CueRoomState | null) {
+  const active = state?.phase === 'guessing'
+  const deadlineMs = state?.deadlineMs ?? null
+  const guessSeconds = state?.settings.guessSeconds ?? 0
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
-    if (!state || state.phase !== 'guessing') {
-      setSeconds(0)
-      return
-    }
-    function tick() {
-      if (!state) return
-      setSeconds(
-        remainingSeconds({
-          deadlineMs: state.deadlineMs,
-          guessSeconds: state.settings.guessSeconds,
-        }),
-      )
-    }
-    tick()
+    if (!active) return
+    const tick = () => setSeconds(remainingSeconds({ deadlineMs, guessSeconds }))
+    const first = window.setTimeout(tick, 0)
     const id = window.setInterval(tick, 250)
-    return () => window.clearInterval(id)
-  }, [state])
-  return seconds
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(id)
+    }
+  }, [active, deadlineMs, guessSeconds])
+  return active ? seconds : 0
 }

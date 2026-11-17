@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { GuessMap, type MapPin } from '../components/GuessMap'
 import { PlacePhoto } from '../components/PlacePhoto'
+import { PlayerName } from '../components/PlayerName'
 import { PlayerRoster } from '../components/PlayerRoster'
+import { portraitSrc } from '../game/characters'
 import { formatMiles } from '../game/geo'
 import {
   GAME_TITLE,
@@ -136,8 +138,18 @@ export function RoomScreen({ session, onLeave }: RoomScreenProps) {
   }
 
   if (state.phase === 'guessing') {
+    const self = state.players.find((player) => player.id === state.selfId)
     const pins: MapPin[] = state.myPin
-      ? [{ id: state.selfId, name: 'You', lat: state.myPin.lat, lng: state.myPin.lng, kind: 'self' }]
+      ? [
+          {
+            id: state.selfId,
+            name: 'You',
+            lat: state.myPin.lat,
+            lng: state.myPin.lng,
+            kind: 'self',
+            portrait: portraitSrc(self?.characterId),
+          },
+        ]
       : []
     return (
       <main className="screen map-room">
@@ -238,6 +250,7 @@ function revealPins(state: RoomState): MapPin[] {
     lat: pin.lat,
     lng: pin.lng,
     kind: pin.playerId === state.selfId ? 'self' : 'other',
+    portrait: portraitSrc(pin.characterId),
   }))
   if (state.answer) {
     pins.push({
@@ -249,6 +262,13 @@ function revealPins(state: RoomState): MapPin[] {
     })
   }
   return pins
+}
+
+function characterIdFor(state: RoomState, playerId: string) {
+  return (
+    state.players.find((player) => player.id === playerId)?.characterId ??
+    state.pins.find((pin) => pin.playerId === playerId)?.characterId
+  )
 }
 
 function Leaderboard({ state, totals = false }: { state: RoomState; totals?: boolean }) {
@@ -275,7 +295,11 @@ function Leaderboard({ state, totals = false }: { state: RoomState; totals?: boo
       {rows.map((row) => (
         <li key={row.key} className={row.you ? 'you' : undefined}>
           <span className="rank">{row.rank}</span>
-          <span>{row.name}{row.you ? ' (you)' : ''}</span>
+          <PlayerName
+            name={row.name}
+            characterId={characterIdFor(state, row.key)}
+            you={row.you}
+          />
           <strong>{row.detail}</strong>
         </li>
       ))}
@@ -379,24 +403,19 @@ function HostSettings({
 }
 
 function useGuessCountdown(state: RoomState | null) {
+  const active = state?.phase === 'guessing'
+  const deadlineMs = state?.deadlineMs ?? null
+  const guessSeconds = state?.settings.guessSeconds ?? 0
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
-    if (!state || state.phase !== 'guessing') {
-      setSeconds(0)
-      return
-    }
-    function tick() {
-      if (!state) return
-      setSeconds(
-        remainingSeconds({
-          deadlineMs: state.deadlineMs,
-          guessSeconds: state.settings.guessSeconds,
-        }),
-      )
-    }
-    tick()
+    if (!active) return
+    const tick = () => setSeconds(remainingSeconds({ deadlineMs, guessSeconds }))
+    const first = window.setTimeout(tick, 0)
     const id = window.setInterval(tick, 250)
-    return () => window.clearInterval(id)
-  }, [state])
-  return seconds
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(id)
+    }
+  }, [active, deadlineMs, guessSeconds])
+  return active ? seconds : 0
 }

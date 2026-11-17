@@ -1,0 +1,11 @@
+# SPA fallback for Apache (Hostinger). The site is served from the domain root.
+# Existing files (assets, avatars, favicon) are served as-is. Any other path
+# returns index.html so a hard refresh of a client route still loads the app.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

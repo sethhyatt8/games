@@ -32,6 +32,7 @@ export type CuePlayer = {
   name: string
   score: number
   seenAt?: number
+  characterId?: string
 }
 
 export type CueGuess = {

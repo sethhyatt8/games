@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { sanitizeCharacterId } from '../game/characters'
 import { isFirebaseConfigured, rtdbListen, rtdbSet, rtdbTransaction } from '../game/rtdb'
 import type { RoomSession } from '../game/useGameRoom'
 import {
@@ -25,23 +26,27 @@ function tabId() {
 
 export function useCueRoom(session: RoomSession) {
   const [state, setState] = useState<CueRoomState | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>('connecting')
+  const configured = isFirebaseConfigured()
+  const [error, setError] = useState<string | null>(
+    configured ? null : 'Firebase is not configured yet.',
+  )
+  const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>(
+    configured ? 'connecting' : 'closed',
+  )
   const selfId = useRef(tabId())
   const sessionRef = useRef(session)
   const latestState = useRef<CueRoomState | null>(null)
-  sessionRef.current = session
+  useEffect(() => {
+    sessionRef.current = session
+  })
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
-      setError('Firebase is not configured yet.')
-      setStatus('closed')
-      return
-    }
+    if (!configured) return
 
     const code = session.roomCode
     const id = selfId.current
     const name = sanitizeName(session.name)
+    const characterId = sanitizeCharacterId(session.characterId) ?? null
     const path = `games/${code}`
     let stopped = false
 
@@ -52,7 +57,7 @@ export function useCueRoom(session: RoomSession) {
         ? room
         : ({
             ...room,
-            players: { ...room.players, [id]: playerRecord(id, name) },
+            players: { ...room.players, [id]: playerRecord(id, name, 0, characterId) },
           } satisfies StoredCueRoom)
       setError(null)
       latestState.current = toCueRoomState(visible, id, code)
@@ -63,14 +68,14 @@ export function useCueRoom(session: RoomSession) {
       const room = normalizeCueRoom(current)
       if (session.intent === 'join') {
         if (!room || playerCount(room) === 0) return undefined
-        const next = addCuePlayer(room, id, name)
+        const next = addCuePlayer(room, id, name, characterId)
         return typeof next === 'string' ? undefined : toFirebaseCueRoom(next)
       }
       if (room && playerCount(room) > 0) {
-        const next = addCuePlayer(room, id, name)
+        const next = addCuePlayer(room, id, name, characterId)
         return typeof next === 'string' ? undefined : toFirebaseCueRoom(next)
       }
-      return toFirebaseCueRoom(emptyCueRoom(id, name))
+      return toFirebaseCueRoom(emptyCueRoom(id, name, characterId))
     })
       .then((result) => {
         if (stopped) return
@@ -101,7 +106,7 @@ export function useCueRoom(session: RoomSession) {
       window.clearInterval(heartbeat)
       void rtdbSet(`${path}/players/${id}`, null)
     }
-  }, [session.intent, session.name, session.roomCode])
+  }, [configured, session.characterId, session.intent, session.name, session.roomCode])
 
   const send = useCallback((message: CueMessage) => {
     if (!isFirebaseConfigured()) return

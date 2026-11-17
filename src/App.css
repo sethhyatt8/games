@@ -844,6 +844,13 @@
   color: #1a1410;
   font-size: 11px;
   box-shadow: 0 2px 8px #0006;
+  background-size: cover;
+  background-position: center;
+}
+
+.guess-pin-dot.has-face {
+  width: 32px;
+  height: 32px;
 }
 
 .guess-pin-label {
@@ -945,5 +952,115 @@
 .room-code {
   letter-spacing: 0.12em;
   font-size: 48px;
+}
+
+.player-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.player-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-avatar {
+  display: block;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: var(--bg-raise);
+}
+
+.avatar-pose {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  flex-shrink: 0;
+}
+
+.avatar-pose img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.avatar-pose .pose-idle,
+.avatar-pose .pose-frame {
+  opacity: 0;
+}
+
+.avatar-pose .pose-frame.is-on {
+  opacity: 1;
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.character-pick {
+  appearance: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-raise);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.character-pick.selected {
+  border-color: var(--ember);
+  background: var(--ember-dim);
+}
+
+.question-prompt {
+  font-family: var(--display);
+  font-size: clamp(26px, 6vw, 36px);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.answer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-stack .choice-row .btn {
+  flex: 1;
+}
+
+.player-name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.point-gain {
+  color: var(--ember);
+}
+
+.leaderboard .player-name {
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-pose .pose-frame {
+    animation: none;
+  }
 }
 
